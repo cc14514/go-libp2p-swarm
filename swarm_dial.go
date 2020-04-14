@@ -28,6 +28,12 @@ import (
 //                                         any may fail          if no addr at end
 //                                                             retry dialAttempt x
 
+// add by liangc
+var (
+	max_dial_timeout     time.Duration
+	SetGlobalDialTimeout = func(t time.Duration) { max_dial_timeout = t }
+)
+
 var (
 	// ErrDialBackoff is returned by the backoff code when a given peer has
 	// been dialed too frequently
@@ -215,9 +221,14 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 		log.Event(ctx, "swarmDialBackoff", p)
 		return nil, ErrDialBackoff
 	}
-
+	// add by liangc : reset def timeout 15s
+	_to := network.GetDialPeerTimeout(ctx)
+	if max_dial_timeout > 0 && _to > max_dial_timeout {
+		_to = max_dial_timeout
+	}
+	//fmt.Println(time.Now().Format("2006-01-02 15:04:05"), "dial-timeout-val", p.Pretty(), _to)
 	// apply the DialPeer timeout
-	ctx, cancel := context.WithTimeout(ctx, network.GetDialPeerTimeout(ctx))
+	ctx, cancel := context.WithTimeout(ctx, _to)
 	defer cancel()
 
 	conn, err = s.dsync.DialLock(ctx, p)
